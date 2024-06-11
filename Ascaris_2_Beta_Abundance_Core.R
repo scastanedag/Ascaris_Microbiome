@@ -195,6 +195,57 @@ plot_cladogram(lefse_model, color = c(Ascaris = "orange", Feces = "brown",
 plot_cladogram(lefse_2, color = c("Non-Infected" = "darkgreen", Ascaris = "orange")) +
   theme(plot.margin = margin(0, 0, 0, 0))
 
+#confirmation by DeSeq2
+
+library(EnhancedVolcano) 
+library('DESeq2')
+
+
+
+# phyloseq to DESeq2
+dds <- phyloseq_to_deseq2(PS.PA.rare, ~ Groups_Inf_NI)
+
+# Replace zeros 
+geoMeans <- apply(counts(dds), 1, function(x) exp(sum(log(x[x > 0])) / length(x)))
+dds <- estimateSizeFactors(dds, geoMeans=geoMeans)
+
+# Dif analysis
+dds <- DESeq(dds)
+
+# Compararison Ascaris vs Host - Non-Infected
+res_Infected_vs_NonInfected <- results(dds, contrast = c("Groups_Inf_NI", "Ascaris", "Non-Infected"))
+
+# Get tax table
+tax_table_df <- as.data.frame(tax_table(PS.PA.rare))
+
+# results to data frame
+res_df_Infected_vs_NonInfected <- as.data.frame(res_Infected_vs_NonInfected)
+
+# Add column OTU IDs
+res_df_Infected_vs_NonInfected$OTU <- rownames(res_df_Infected_vs_NonInfected)
+
+# merge tax table with Deseq results
+res_tax_Infected_vs_NonInfected <- merge(res_df_Infected_vs_NonInfected, tax_table_df, by.x = "OTU", by.y = "row.names")
+
+# labels
+labels_Infected_vs_NonInfected <- as.character(res_tax_Infected_vs_NonInfected$Family)
+
+# volcano plot
+EnhancedVolcano(res_tax_Infected_vs_NonInfected,
+                lab = labels_Infected_vs_NonInfected,
+                x = 'log2FoldChange',
+                y = 'pvalue',
+                title = "Differential Abundance Analysis: Host Non-Infected vs Ascaris",
+                subtitle = "Volcano plot",
+                pCutoff = 0.05,
+                FCcutoff = 1.0,
+                pointSize = 3.0,
+                labSize = 3.0,
+                colAlpha = 1,
+                legendPosition = 'right',
+                legendLabSize = 10,
+                legendIconSize = 3.0)
+
 
 ##Core microbiome analysis
 ##
